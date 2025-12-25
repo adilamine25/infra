@@ -23,11 +23,17 @@ sudo install kubectl /usr/local/bin/kubectl
 curl -LO https://storage.googleapis.com/minikube/releases/latest/minikube-linux-amd64
 sudo install minikube-linux-amd64 /usr/local/bin/minikube
 
+# Démarrer Minikube et attendre qu'il soit prêt
+minikube start --driver=docker
+until kubectl cluster-info; do
+  echo "Attente que Minikube soit prêt..."
+  sleep 10
+done
+
 # Helm
 curl https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
 
 # ArgoCD
-minikube start --driver=docker
 kubectl create namespace argocd || true
 helm repo add argo https://argoproj.github.io/argo-helm
 helm repo update
