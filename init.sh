@@ -2,11 +2,6 @@
 sudo apt update
 sudo apt install -y curl gnupg lsb-release apt-transport-https
 
-# RDP
-sudo apt install -y xrdp
-sudo systemctl enable xrdp
-sudo systemctl start xrdp
-
 # Docker
 sudo install -m 0755 -d /etc/apt/keyrings
 curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo gpg --dearmor -o /etc/apt/keyrings/docker.gpg
@@ -23,12 +18,26 @@ sudo install kubectl /usr/local/bin/kubectl
 curl -LO https://storage.googleapis.com/minikube/releases/latest/minikube-linux-amd64
 sudo install minikube-linux-amd64 /usr/local/bin/minikube
 
-# Démarrer Minikube et attendre qu'il soit prêt
+# Démarre Minikube avec Docker comme driver
 minikube start --driver=docker
-until kubectl cluster-info; do
-  echo "Attente que Minikube soit prêt..."
-  sleep 10
+
+# Vérifie que le cluster est prêt
+echo "Vérification du cluster Kubernetes..."
+MAX_RETRIES=30
+RETRY_COUNT=0
+
+until kubectl cluster-info > /dev/null 2>&1; do
+    if [ $RETRY_COUNT -ge $MAX_RETRIES ]; then
+        echo "Erreur : le cluster Minikube n'a pas démarré après $MAX_RETRIES essais."
+        exit 1
+    fi
+    echo "Attente que Minikube soit prêt... ($((RETRY_COUNT+1))/$MAX_RETRIES)"
+    sleep 10
+    RETRY_COUNT=$((RETRY_COUNT+1))
 done
+
+echo "Minikube est prêt !"
+kubectl get nodes
 
 # Helm
 curl https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
