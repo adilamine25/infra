@@ -18,8 +18,8 @@ sudo install kubectl /usr/local/bin/kubectl
 curl -LO https://storage.googleapis.com/minikube/releases/latest/minikube-linux-amd64
 sudo install minikube-linux-amd64 /usr/local/bin/minikube
 
-# Démarre Minikube avec Docker comme driver
-minikube start --driver=docker
+# Démarre Minikube avec le driver none (recommandé sur VM)
+minikube start --driver=none
 
 # Vérifie que le cluster est prêt
 echo "Vérification du cluster Kubernetes..."
