@@ -18,16 +18,26 @@ sudo install kubectl /usr/local/bin/kubectl
 curl -LO https://storage.googleapis.com/minikube/releases/latest/minikube-linux-amd64
 sudo install minikube-linux-amd64 /usr/local/bin/minikube
 
-# Démarre Minikube avec le driver none (recommandé sur VM)
+set -euo pipefail
+
+echo "Installation des dépendances Kubernetes..."
+apt-get update
+apt-get install -y \
+  conntrack \
+  socat \
+  ebtables \
+  iptables \
+  curl
+
+echo "Démarrage de Minikube (driver=none)..."
 minikube start --driver=none
 
-# Vérifie que le cluster est prêt
 echo "Vérification du cluster Kubernetes..."
 MAX_RETRIES=30
 RETRY_COUNT=0
 
 until kubectl cluster-info > /dev/null 2>&1; do
-    if [ $RETRY_COUNT -ge $MAX_RETRIES ]; then
+    if [ "$RETRY_COUNT" -ge "$MAX_RETRIES" ]; then
         echo "Erreur : le cluster Minikube n'a pas démarré après $MAX_RETRIES essais."
         exit 1
     fi
@@ -35,6 +45,10 @@ until kubectl cluster-info > /dev/null 2>&1; do
     sleep 10
     RETRY_COUNT=$((RETRY_COUNT+1))
 done
+
+echo "✅ Minikube est prêt"
+kubectl get nodes
+
 
 echo "Minikube est prêt !"
 kubectl get nodes
