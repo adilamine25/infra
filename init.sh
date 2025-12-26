@@ -1,5 +1,6 @@
 #!/bin/bash
 set -euo pipefail
+export DEBIAN_FRONTEND=noninteractive
 
 USER="adiluser"
 
@@ -16,6 +17,7 @@ echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.
 sudo apt update
 sudo apt install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
 sudo usermod -aG docker $USER
+sudo systemctl start docker
 
 # kubectl
 echo "🔧 Installation de kubectl..."
@@ -29,25 +31,8 @@ curl -LO https://storage.googleapis.com/minikube/releases/latest/minikube-linux-
 sudo install minikube-linux-amd64 /usr/local/bin/minikube
 rm minikube-linux-amd64
 
-# crictl
-echo "🔧 Installation de crictl..."
-CRICTL_VERSION="v1.30.0"
-curl -L https://github.com/kubernetes-sigs/cri-tools/releases/download/${CRICTL_VERSION}/crictl-${CRICTL_VERSION}-linux-amd64.tar.gz \
-  | sudo tar -C /usr/local/bin -xz
-sudo chmod +x /usr/local/bin/crictl
-
-# kubelet, kubeadm, kubectl via dépôt officiel Kubernetes
-echo "📦 Installation de kubelet, kubeadm..."
-K8S_VERSION="1.34"
-sudo mkdir -p /etc/apt/keyrings
-curl -fsSL https://pkgs.k8s.io/core:/stable:/v${K8S_VERSION}/deb/Release.key | sudo gpg --dearmor -o /etc/apt/keyrings/kubernetes.gpg
-echo "deb [signed-by=/etc/apt/keyrings/kubernetes.gpg] https://pkgs.k8s.io/core:/stable:/v${K8S_VERSION}/deb/ /" | sudo tee /etc/apt/sources.list.d/kubernetes.list
-sudo apt update
-sudo apt install -y kubelet kubeadm kubectl
-sudo apt-mark hold kubelet kubeadm kubectl
-
 # Vérification des binaires
-for cmd in conntrack crictl docker kubelet kubectl minikube; do
+for cmd in conntrack docker kubectl minikube; do
     if ! command -v $cmd &> /dev/null; then
         echo "❌ Erreur : $cmd n'est pas installé."
         exit 1
@@ -55,8 +40,8 @@ for cmd in conntrack crictl docker kubelet kubectl minikube; do
 done
 
 # Démarrage de Minikube
-echo "⚡ Démarrage de Minikube (driver=none)..."
-sudo minikube start --driver=none
+echo "⚡ Démarrage de Minikube (driver=docker)..."
+sudo minikube start --driver=docker
 
 # Attente que le cluster soit prêt
 echo "⏳ Vérification du cluster Kubernetes..."
