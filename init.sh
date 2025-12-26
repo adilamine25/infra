@@ -1,6 +1,8 @@
 #!/bin/bash
 set -euo pipefail
 export DEBIAN_FRONTEND=noninteractive
+LOG_FILE="/var/log/init-devops.log"
+exec > >(tee -a $LOG_FILE) 2>&1
 
 USER="adiluser"
 
@@ -19,7 +21,7 @@ echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.
 sudo apt update
 sudo apt install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
 sudo usermod -aG docker $USER
-sudo systemctl start docker
+sudo systemctl enable docker --now
 
 # kubectl
 echo "🔧 Installation de kubectl..."
@@ -27,39 +29,33 @@ KUBECTL_VERSION="v1.30.0"
 curl -LO https://dl.k8s.io/release/${KUBECTL_VERSION}/bin/linux/amd64/kubectl
 sudo install kubectl /usr/local/bin/kubectl
 
-# Minikube
-echo "🚀 Installation de Minikube..."
-curl -LO https://storage.googleapis.com/minikube/releases/latest/minikube-linux-amd64
-sudo install minikube-linux-amd64 /usr/local/bin/minikube
-rm minikube-linux-amd64
+# K3s
+echo "🚀 Installation de K3s..."
+curl -sfL https://get.k3s.io | sh -
 
-# Vérification des binaires
-for cmd in conntrack docker kubectl minikube; do
-    if ! command -v $cmd &> /dev/null; then
-        echo "❌ Erreur : $cmd n'est pas installé."
-        exit 1
-    fi
-done
-
-# Démarrage de Minikube
-echo "⚡ Démarrage de Minikube (driver=docker)..."
-sudo minikube start --driver=docker
-
-# Attente que le cluster soit prêt
-echo "⏳ Vérification du cluster Kubernetes..."
+# Vérification que K3s est actif
+echo "⏳ Vérification que K3s est démarré..."
 MAX_RETRIES=30
 RETRY_COUNT=0
-until kubectl cluster-info > /dev/null 2>&1; do
+until sudo systemctl is-active --quiet k3s; do
     if [ "$RETRY_COUNT" -ge "$MAX_RETRIES" ]; then
-        echo "❌ Erreur : le cluster Minikube n'a pas démarré après $MAX_RETRIES essais."
-        minikube logs
+        echo "❌ Erreur : K3s n'a pas démarré après $MAX_RETRIES essais."
+        sudo journalctl -u k3s --no-pager
         exit 1
     fi
-    echo "⏳ Attente que Minikube soit prêt... ($((RETRY_COUNT+1))/$MAX_RETRIES)"
-    sleep 10
+    echo "⏳ Attente que K3s soit actif... ($((RETRY_COUNT+1))/$MAX_RETRIES)"
+    sleep 5
     RETRY_COUNT=$((RETRY_COUNT+1))
 done
-echo "✅ Minikube est prêt !"
+echo "✅ K3s est prêt !"
+
+# Configurer kubectl pour l'utilisateur
+mkdir -p /home/$USER/.kube
+sudo cp /etc/rancher/k3s/k3s.yaml /home/$USER/.kube/config
+sudo chown $USER:$USER /home/$USER/.kube/config
+export KUBECONFIG=/home/$USER/.kube/config
+
+# Vérification des nœuds
 kubectl get nodes
 
 # Helm
