@@ -27,7 +27,12 @@ apt-get install -y \
   socat \
   ebtables \
   iptables \
-  curl
+  curl \
+  cri-tools
+
+echo "Vérification des binaires requis..."
+command -v conntrack
+command -v crictl
 
 echo "Démarrage de Minikube (driver=none)..."
 minikube start --driver=none
@@ -38,17 +43,16 @@ RETRY_COUNT=0
 
 until kubectl cluster-info > /dev/null 2>&1; do
     if [ "$RETRY_COUNT" -ge "$MAX_RETRIES" ]; then
-        echo "Erreur : le cluster Minikube n'a pas démarré après $MAX_RETRIES essais."
+        echo "❌ Erreur : le cluster Minikube n'a pas démarré après $MAX_RETRIES essais."
         exit 1
     fi
-    echo "Attente que Minikube soit prêt... ($((RETRY_COUNT+1))/$MAX_RETRIES)"
+    echo "⏳ Attente que Minikube soit prêt... ($((RETRY_COUNT+1))/$MAX_RETRIES)"
     sleep 10
     RETRY_COUNT=$((RETRY_COUNT+1))
 done
 
 echo "✅ Minikube est prêt"
 kubectl get nodes
-
 
 echo "Minikube est prêt !"
 kubectl get nodes
