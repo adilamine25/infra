@@ -34,25 +34,47 @@ echo "Vérification des binaires requis..."
 command -v conntrack
 command -v crictl
 
+set -euo pipefail
+
+echo "Installation des dépendances système..."
+apt-get update
+apt-get install -y \
+  conntrack \
+  socat \
+  ebtables \
+  iptables \
+  curl \
+  gpg
+
+echo "Installation de crictl..."
+CRICTL_VERSION="v1.30.0"
+curl -L https://github.com/kubernetes-sigs/cri-tools/releases/download/${CRICTL_VERSION}/crictl-${CRICTL_VERSION}-linux-amd64.tar.gz \
+  | tar -C /usr/local/bin -xz
+chmod +x /usr/local/bin/crictl
+
+echo "Installation de kubelet / kubeadm / kubectl..."
+K8S_VERSION="1.34"
+
+mkdir -p /etc/apt/keyrings
+curl -fsSL https://pkgs.k8s.io/core:/stable:/v${K8S_VERSION}/deb/Release.key \
+  | gpg --dearmor -o /etc/apt/keyrings/kubernetes.gpg
+
+echo "deb [signed-by=/etc/apt/keyrings/kubernetes.gpg] \
+https://pkgs.k8s.io/core:/stable:/v${K8S_VERSION}/deb/ /" \
+| tee /etc/apt/sources.list.d/kubernetes.list
+
+apt-get update
+apt-get install -y kubelet kubeadm kubectl
+apt-mark hold kubelet kubeadm kubectl
+
+echo "Vérification des binaires requis..."
+command -v conntrack
+command -v crictl
+command -v kubelet
+command -v kubectl
+
 echo "Démarrage de Minikube (driver=none)..."
 minikube start --driver=none
-
-echo "Vérification du cluster Kubernetes..."
-MAX_RETRIES=30
-RETRY_COUNT=0
-
-until kubectl cluster-info > /dev/null 2>&1; do
-    if [ "$RETRY_COUNT" -ge "$MAX_RETRIES" ]; then
-        echo "❌ Erreur : le cluster Minikube n'a pas démarré après $MAX_RETRIES essais."
-        exit 1
-    fi
-    echo "⏳ Attente que Minikube soit prêt... ($((RETRY_COUNT+1))/$MAX_RETRIES)"
-    sleep 10
-    RETRY_COUNT=$((RETRY_COUNT+1))
-done
-
-echo "✅ Minikube est prêt"
-kubectl get nodes
 
 echo "Minikube est prêt !"
 kubectl get nodes
